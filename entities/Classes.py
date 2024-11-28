@@ -16,3 +16,8 @@ class ClassEnum(Enum):
 
     def __init__(self, display_name):
         self.display_name = display_name
+
+    @classmethod
+    def list(cls):
+        """Return a list of all race names."""
+        return [clas.value for clas in cls]

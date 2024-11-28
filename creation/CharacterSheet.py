@@ -1,37 +1,67 @@
 # TODO: Add Server side debug logging capabilities
-from discord.ext import commands
 import random
+from discord.ext.commands import Context
+from entities.Character import CharacterBuilder
+from entities.Classes import ClassEnum
+from entities.Races import RacesEnum
+from entities.Stats import StatsEnum
+from utils.DatabaseController import DatabaseController
 
+async def finalize_character(ctx, db_controller, character: CharacterBuilder):
+    """
+    Save the character to the database and confirm creation.
+    """
+    try:
+        # Validate the character before saving
+        character.validate()
+
+        # Save to the database
+        db_controller.insert("characters", {
+            "user_id": character.user_id,
+            "stats": {stat.name: value for stat, value in character.stats.items()},
+            "class": character.chosen_class.display_name,
+            "race": character.chosen_race.value
+        })
+
+        # Notify the user of successful creation
+        await ctx.send(f"Character creation complete! Stats: {character.stats}, "
+                       f"Class: {character.chosen_class.display_name}, Race: {character.chosen_race.value}")
+    except ValueError as e:
+        await ctx.send(f"Character validation failed: {e}")
+    except Exception as e:
+        await ctx.send(f"Failed to save character: {e}")
 
 class CharacterCreation:
+    def __init__(self, db_controller: DatabaseController):
+        self.db_controller = db_controller
 
-    bot = commands.bot.Bot
-    ctx = ''
-
-    async def newchar(self, bot, ctx):
-        self.ctx = ctx
-        self.bot = bot
+    async def newchar(self, ctx: Context):
         user_id = ctx.author.id
+        character = CharacterBuilder(user_id=user_id)
         # Proceed to step #2
         await ctx.send("Choose your stat generation method: (1) Standard Point Buy or (2) Rolling")
-        msg = await bot.wait_for(
+        msg = await ctx.bot.wait_for(
             "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
         )
 
         if msg.content == "1":
-            await self.standard_point_buy(ctx, user_id)
+            await self.standard_point_buy(ctx, character)
         elif msg.content == "2":
-            await self.rolling_method(ctx, user_id)
+            await self.rolling_method(ctx, character)
         else:
             await ctx.send("Invalid choice. Please start over by typing `!newchar`.")
 
     # Step #3: Standard Point Buy
     # This method is messy, and needs some TLC.
     # TODO: Update method with more efficient way of handling point assignments.
-    async def standard_point_buy(self, ctx, user_id):
+    async def standard_point_buy(self, ctx: Context, character: CharacterBuilder):
+        """
+
+        :param character: CharacterBuilder entity
+        :type ctx: Context
+        """
         points = 27
-        # TODO: Pull this dictionary out into a configurable object class
-        stats = {"Strength": 8, "Dexterity": 8, "Constitution": 8, "Intelligence": 8, "Wisdom": 8, "Charisma": 8}
+        stats = {stat: 8 for stat in StatsEnum}
         cost_table = {8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9}
 
         # TODO: Remove validation from being an inner method to the async call
@@ -42,9 +72,10 @@ class CharacterCreation:
             return new_total >= 0
 
         while points > 0:
-            await ctx.send(f"Points remaining: {points}\nStats: {stats}")
+            await ctx.send(f"Points remaining: {points}\nStats: {', '.join(f'{stat.display_name}: {value}' for stat, value in stats.items())}")
+
             await ctx.send("Choose a stat to adjust (Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma):")
-            stat_msg = await self.bot.wait_for(
+            stat_msg = await ctx.bot.wait_for(
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             stat = stat_msg.content.capitalize()
@@ -54,7 +85,7 @@ class CharacterCreation:
                 continue
 
             await ctx.send(f"Current {stat}: {stats[stat]}. Enter new value (8-15):")
-            value_msg = await self.bot.wait_for(
+            value_msg = await ctx.bot.wait_for(
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             try:
@@ -70,20 +101,20 @@ class CharacterCreation:
                 await ctx.send("Invalid choice. Not enough points or invalid range.")
 
         await ctx.send(f"Your final stats are: {stats}. Is this correct? (yes/no)")
-        confirm_msg = await self.bot.wait_for(
+        confirm_msg = await ctx.bot.wait_for(
             "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
         )
 
         if confirm_msg.content.lower() == "yes":
             await ctx.send("Stats confirmed! Moving to class selection.")
-            await self.choose_class(ctx, user_id, stats)
+            await self.choose_class(ctx, character)
         else:
             await ctx.send("Restarting point buy...")
-            await self.standard_point_buy(ctx, user_id)
+            await self.standard_point_buy(ctx)
 
 
     # Step #4: Rolling Method
-    async def rolling_method(self, ctx, user_id):
+    async def rolling_method(self, ctx: Context, character: CharacterBuilder):
         def roll_3d6():
             return sum(random.randint(1, 6) for _ in range(3))
 
@@ -103,7 +134,7 @@ class CharacterCreation:
 
         for _ in range(2):
             await ctx.send("Select a row, column, or diagonal (e.g., Row 1):")
-            selection_msg = await self.bot.wait_for(
+            selection_msg = await ctx.bot.wait_for(
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             selection = selection_msg.content.lower()
@@ -129,7 +160,7 @@ class CharacterCreation:
         stats = {}
         for stat in ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"]:
             await ctx.send(f"Choose a value for {stat} from your pool: {pool}")
-            stat_msg = await self.bot.wait_for(
+            stat_msg = await ctx.bot.wait_for(
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             value = int(stat_msg.content)
@@ -141,77 +172,72 @@ class CharacterCreation:
                 continue
 
         await ctx.send(f"Your final stats are: {stats}. Is this correct? (yes/no)")
-        confirm_msg = await self.bot.wait_for(
+        confirm_msg = await ctx.bot.wait_for(
             "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
         )
 
         if confirm_msg.content.lower() == "yes":
             await ctx.send("Stats confirmed! Moving to class selection.")
-            await self.choose_class(ctx, user_id, stats)
+            await self.choose_class(ctx, character)
         else:
             await ctx.send("Restarting rolling method...")
-            await self.rolling_method(ctx, user_id)
+            await self.rolling_method(ctx)
 
 
     # Step #5: Choose Class
-    async def choose_class(self, ctx, user_id, stats):
-        classes = [
-            "Barbarian", "Bard", "Cleric", "Druid", "Fighter",
-            "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard"
-        ]
+    async def choose_class(self, ctx: Context, character: CharacterBuilder):
+        """
+        Guide the user through class selection using ClassEnum.
+        """
+        # Retrieve all class display names from ClassEnum
+        classes = [cls.display_name for cls in ClassEnum]
         await ctx.send(f"Choose a class from the following: {', '.join(classes)}")
-        class_msg = await self.bot.wait_for(
+
+        class_msg = await ctx.bot.wait_for(
             "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
         )
-        chosen_class = class_msg.content.capitalize()
 
-        if chosen_class in classes:
-            await ctx.send(f"You selected {chosen_class}. Is this correct? (yes/no)")
-            confirm_msg = await self.bot.wait_for(
+        # Match the user's input to a valid class
+        chosen_class = next((cls for cls in ClassEnum if cls.display_name.lower() == class_msg.content.lower()), None)
+
+        if chosen_class:
+            await ctx.send(f"You selected {chosen_class.display_name}. Is this correct? (yes/no)")
+            confirm_msg = await ctx.bot.wait_for(
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             if confirm_msg.content.lower() == "yes":
                 await ctx.send("Class confirmed! Moving to race selection.")
-                await self.choose_race(ctx, user_id, stats, chosen_class)
+                await self.choose_race(ctx, character)
             else:
                 await ctx.send("Restarting class selection...")
-                await self.choose_class(ctx, user_id, stats)
+                await self.choose_class(ctx, character)
         else:
             await ctx.send("Invalid class. Try again.")
-            await self.choose_class(ctx, user_id, stats)
+            await self.choose_class(ctx, character)
 
 
     # Step #6: Choose Race
-    async def choose_race(self, ctx, user_id, stats, chosen_class):
-        races = [
-            "Aasimar", "Dragonborn", "Dwarf", "Elf", "Gnome", "Goliath",
-            "Halfling", "Human", "Orc", "Tiefling"
-        ]
-        await ctx.send(f"Choose a race from the following: {', '.join(races)}")
-        race_msg = await self.bot.wait_for(
+    async def choose_race(self, ctx: Context, character: CharacterBuilder):
+        """
+        Guide the user through race selection using RacesEnum.
+        """
+        await ctx.send(f"Choose a race from the following: {', '.join(RacesEnum.list())}")
+        race_msg = await ctx.bot.wait_for(
             "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
         )
-        chosen_race = race_msg.content.capitalize()
+        chosen_race = next((race for race in RacesEnum if race.value.lower() == race_msg.content.lower()), None)
 
-        if chosen_race in races:
-            await ctx.send(f"You selected {chosen_race}. Is this correct? (yes/no)")
-            confirm_msg = await self.bot.wait_for(
+        if chosen_race:
+            await ctx.send(f"You selected {chosen_race.value}. Is this correct? (yes/no)")
+            confirm_msg = await ctx.bot.wait_for(
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             if confirm_msg.content.lower() == "yes":
-                await self.finalize_character(ctx, user_id, stats, chosen_class, chosen_race)
+                await finalize_character(ctx, self.db_controller, character)
             else:
                 await ctx.send("Restarting race selection...")
-                await self.choose_race(ctx, user_id, stats, chosen_class)
+                await self.choose_race(ctx, character)
         else:
             await ctx.send("Invalid race. Try again.")
-            await self.choose_race(ctx, user_id, stats, chosen_class)
-
-    # Step #7: Finalize Character
-    async def finalize_character(self, ctx, user_id, stats, chosen_class, chosen_race):
-        async with self.bot.db.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO characters (user_id, stats, class, race) VALUES ($1, $2, $3, $4)",
-                user_id, stats, chosen_class, chosen_race
-            )
-        await ctx.send(f"Character creation complete! Stats: {stats}, Class: {chosen_class}, Race: {chosen_race}")
+            await self.choose_race(ctx, character)
+    

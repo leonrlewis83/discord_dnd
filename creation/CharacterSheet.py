@@ -1,5 +1,6 @@
 # TODO: Add Server side debug logging capabilities
 import random
+import logging
 from discord.ext.commands import Context
 from entities.Character import CharacterBuilder
 from entities.Classes import ClassEnum
@@ -7,6 +8,7 @@ from entities.Races import RacesEnum
 from entities.Stats import StatsEnum
 from utils.DatabaseController import DatabaseController
 
+logger = logging.getLogger("bot.character")
 async def finalize_character(ctx, db_controller, character: CharacterBuilder):
     """
     Save the character to the database and confirm creation.
@@ -56,35 +58,44 @@ class CharacterCreation:
     # TODO: Update method with more efficient way of handling point assignments.
     async def standard_point_buy(self, ctx: Context, character: CharacterBuilder):
         """
+        Guide the user through the Standard Point Buy system for assigning stats.
 
-        :param character: CharacterBuilder entity
-        :type ctx: Context
+        :param ctx: Discord context for sending and receiving messages.
+        :param character: The CharacterBuilder instance being constructed.
         """
         points = 27
-        stats = {stat: 8 for stat in StatsEnum}
+        stats = {stat: 8 for stat in StatsEnum}  # Initialize all stats to 8
         cost_table = {8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9}
 
-        # TODO: Remove validation from being an inner method to the async call
-        def validate_points(assigning_stat, assigning_value):
+        def validate_points(assigning_stat: StatsEnum, assigning_value: int) -> bool:
+            """
+            Validate whether the new stat value can be assigned given the available points.
+            """
             if assigning_value not in cost_table:
                 return False
             new_total = points - (cost_table[assigning_value] - cost_table[stats[assigning_stat]])
             return new_total >= 0
 
         while points > 0:
-            await ctx.send(f"Points remaining: {points}\nStats: {', '.join(f'{stat.display_name}: {value}' for stat, value in stats.items())}")
+            await ctx.send(
+                f"Points remaining: {points}\nStats: {', '.join(f'{stat.display_name}: {value}' for stat, value in stats.items())}"
+            )
+            await ctx.send(
+                "Choose a stat to adjust (Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma):")
 
-            await ctx.send("Choose a stat to adjust (Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma):")
+            # Get the user's stat selection
             stat_msg = await ctx.bot.wait_for(
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
-            stat = stat_msg.content.capitalize()
+            stat = next((s for s in StatsEnum if s.display_name.lower() == stat_msg.content.lower()), None)
 
-            if stat not in stats:
+            if not stat:
                 await ctx.send("Invalid stat. Try again.")
                 continue
 
-            await ctx.send(f"Current {stat}: {stats[stat]}. Enter new value (8-15):")
+            await ctx.send(f"Current {stat.display_name}: {stats[stat]}. Enter new value (8-15):")
+
+            # Get the user's desired value for the selected stat
             value_msg = await ctx.bot.wait_for(
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
@@ -94,23 +105,27 @@ class CharacterCreation:
                 await ctx.send("Invalid number. Try again.")
                 continue
 
+            # Validate and assign the value
             if validate_points(stat, value):
                 points -= cost_table[value] - cost_table[stats[stat]]
                 stats[stat] = value
             else:
                 await ctx.send("Invalid choice. Not enough points or invalid range.")
 
-        await ctx.send(f"Your final stats are: {stats}. Is this correct? (yes/no)")
+        # Final confirmation
+        await ctx.send(
+            f"Your final stats are: {', '.join(f'{stat.display_name}: {value}' for stat, value in stats.items())}. Is this correct? (yes/no)")
         confirm_msg = await ctx.bot.wait_for(
             "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
         )
 
         if confirm_msg.content.lower() == "yes":
+            character.stats = stats
             await ctx.send("Stats confirmed! Moving to class selection.")
             await self.choose_class(ctx, character)
         else:
             await ctx.send("Restarting point buy...")
-            await self.standard_point_buy(ctx)
+            await self.standard_point_buy(ctx, character)
 
 
     # Step #4: Rolling Method

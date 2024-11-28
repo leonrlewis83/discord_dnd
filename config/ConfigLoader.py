@@ -1,7 +1,10 @@
 import json
 import os
+import logging
 from dataclasses import dataclass
 
+
+logger = logging.getLogger("bot.config")
 @dataclass
 class DatabaseConfig:
     DB_URL: str
@@ -52,7 +55,7 @@ class ConfigLoader:
             # Create the file with the default structure
             with open(self.config_path, "w") as config_file:
                 json.dump(default_config, config_file, indent=4)
-            print(f"Config file not found. A new file has been created at: {self.config_path}")
+            logger.warning(f"Config file not found. A new file has been created at: {self.config_path}")
 
         # Load the file
         with open(self.config_path, "r") as config_file:
@@ -63,6 +66,7 @@ class ConfigLoader:
 
         # Map the loaded data to data objects
         self._map_to_objects(config_data)
+        logger.info(f'Configuration loaded.')
 
     def _map_to_objects(self, config_data):
         """
@@ -84,4 +88,4 @@ class ConfigLoader:
         }
         with open(self.config_path, "w") as config_file:
             json.dump(config_data, config_file, indent=4)
-        print(f"Configuration saved to: {self.config_path}")
+        logger.info(f"Configuration saved to: {self.config_path}")

@@ -12,3 +12,8 @@ class StatsEnum(Enum):
         self.display_name = display_name
         self.abbr = abbr
         self.description = description
+
+    @classmethod
+    def list(cls):
+        """Return a list of all race names."""
+        return [stat.display_name for stat in cls]

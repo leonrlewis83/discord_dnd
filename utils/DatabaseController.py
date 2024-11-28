@@ -1,9 +1,11 @@
+import logging
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2.extras import RealDictCursor
 from psycopg2 import OperationalError, IntegrityError, DatabaseError
 from typing import Any, List, Optional, Dict
 
 
+logger = logging.getLogger("bot.dbcontroller")
 class DatabaseController:
     def __init__(self, db_url: str, db_port: int, db_user: str, db_password: str, db_name: str, pool_size: int = 5):
         self.db_url = db_url
@@ -28,9 +30,11 @@ class DatabaseController:
                 database=self.db_name
             )
             if not self.connection_pool:
+                logger.error(f'Failed to initialize the connection pool.')
                 raise RuntimeError("Failed to initialize the connection pool.")
-            print("Connection pool initialized successfully.")
+            logger.info("Connection pool initialized successfully.")
         except OperationalError as e:
+            logger.error(f'Error initializing connection pool. {e}')
             raise ConnectionError(f"Error initializing connection pool: {e}")
 
     def _get_connection(self):
@@ -55,6 +59,7 @@ class DatabaseController:
                 cur.execute(query, params or ())
                 return cur.fetchall()
         except DatabaseError as e:
+            logger.error(f'Database Error: {e}')
             raise RuntimeError(f"Error fetching data: {e}")
         finally:
             self._release_connection(conn)
@@ -67,6 +72,7 @@ class DatabaseController:
                 cur.execute(query, params or ())
                 return cur.fetchone()
         except DatabaseError as e:
+            logger.error(f'Database Error: {e}')
             raise RuntimeError(f"Error fetching data: {e}")
         finally:
             self._release_connection(conn)
@@ -80,9 +86,11 @@ class DatabaseController:
                 conn.commit()
         except IntegrityError as e:
             conn.rollback()
+            logger.error(f'Integrity Exception: {e}')
             raise ValueError(f"Data integrity error: {e}")
         except DatabaseError as e:
             conn.rollback()
+            logger.error(f'Database Error: {e}')
             raise RuntimeError(f"Error executing query: {e}")
         finally:
             self._release_connection(conn)
@@ -92,21 +100,24 @@ class DatabaseController:
         columns = ', '.join(data.keys())
         placeholders = ', '.join(['%s'] * len(data))
         query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        logger.debug(f'INSERT Executing: {query}')
         self.execute(query, tuple(data.values()))
 
     def update(self, table: str, data: Dict[str, Any], condition: str, condition_params: tuple) -> None:
         """Update data in a table based on a condition."""
         set_clause = ', '.join([f"{col} = %s" for col in data.keys()])
         query = f"UPDATE {table} SET {set_clause} WHERE {condition}"
+        logger.debug(f'UPDATE Executing: {query}')
         self.execute(query, tuple(data.values()) + condition_params)
 
     def delete(self, table: str, condition: str, condition_params: tuple) -> None:
         """Delete data from a table based on a condition."""
         query = f"DELETE FROM {table} WHERE {condition}"
+        logger.debug(f'DELETE Executing: {query}')
         self.execute(query, condition_params)
 
     def close_pool(self):
         """Close the connection pool."""
         if self.connection_pool:
             self.connection_pool.closeall()
-            print("Connection pool closed.")
+            logger.info("Connection pool closed.")

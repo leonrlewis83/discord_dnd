@@ -1,8 +1,22 @@
+import logging
 import discord
 from discord.ext import commands
 from utils.DatabaseController import DatabaseController
 from creation.CharacterSheet import CharacterCreation
 from config.ConfigLoader import ConfigLoader
+from utils.LoggingHelper import Blacklist
+
+# Configuring Logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s",
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[logging.StreamHandler()]
+)
+for handler in logging.root.handlers:
+    handler.addFilter(Blacklist('discord.client', 'discord.gateway'))
+
+bot_logger = logging.getLogger("bot.gateway")
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -10,6 +24,7 @@ sys_config = ConfigLoader()
 db_config = sys_config.database
 discord_config = sys_config.discord
 db_controller = DatabaseController(
+    logging.getLogger("db"),
     db_url=db_config.DB_URL,
     db_port=db_config.DB_PORT,
     db_user=db_config.DB_USER,
@@ -17,11 +32,11 @@ db_controller = DatabaseController(
     db_name=db_config.DB_DBNAME
 )
 
-character_creator = CharacterCreation(db_controller)
+character_creator = CharacterCreation(bot_logger, db_controller)
 
 @bot.event
 async def on_ready():
-    print(f"Bot connected as {bot.user}")
+    bot_logger.info(f'Bot connected as {bot.user}')
 
 # Step #1: Check for Empty Character Slot
 @bot.command(name="newchar")

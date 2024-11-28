@@ -1,0 +1,7 @@
+# Default ignored files
+/.idea/**
+/shelf/
+/.idea/workspace.xml
+
+# ignoring to ensure it does not save over files that contain secrets
+/config/sys_config.json

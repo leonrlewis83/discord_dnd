@@ -9,6 +9,7 @@ class CharacterCreation:
 
     async def newchar(self, bot, ctx):
         self.ctx = ctx
+        self.bot = bot
         user_id = ctx.author.id
         # Proceed to step #2
         await ctx.send("Choose your stat generation method: (1) Standard Point Buy or (2) Rolling")
@@ -96,9 +97,11 @@ class CharacterCreation:
         ):
             grid = generate_grid()
 
-        await ctx.send(f"Here is your grid: {grid}\nSelect a row, column, or diagonal (e.g., Row 1):")
+        await ctx.send(f"Here is your grid:\n{grid[:3]}\n{grid[3:6]}\n{grid[6:9]}")
         pool = []
+
         for _ in range(2):
+            await ctx.send("Select a row, column, or diagonal (e.g., Row 1):")
             selection_msg = await self.bot.wait_for(
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
@@ -121,6 +124,7 @@ class CharacterCreation:
 
         pool = list(set(pool))[:6]
         # TODO: Look - more references to the stat array.
+        # BUG: Found issue with duplicate roll values in the pool
         stats = {}
         for stat in ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"]:
             await ctx.send(f"Choose a value for {stat} from your pool: {pool}")

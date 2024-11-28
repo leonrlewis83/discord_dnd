@@ -24,7 +24,6 @@ sys_config = ConfigLoader()
 db_config = sys_config.database
 discord_config = sys_config.discord
 db_controller = DatabaseController(
-    logging.getLogger("db"),
     db_url=db_config.DB_URL,
     db_port=db_config.DB_PORT,
     db_user=db_config.DB_USER,

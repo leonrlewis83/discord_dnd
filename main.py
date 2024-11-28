@@ -2,13 +2,21 @@ import discord
 from discord.ext import commands
 import psycopg2
 from creation.character import CharacterCreation
+from config.ConfigLoader import ConfigLoader
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
+sys_config = ConfigLoader()
+db_config = sys_config.database
+discord_config = sys_config.discord
 
-# TODO: Abstract configurable properties to an external config json
-SUPER_SECRET_TOKEN = ""
+SUPER_SECRET_TOKEN = discord_config.SUPER_SECRET_TOKEN
 DATABASE_CONFIG = {
+    "dbname": db_config.DB_DBNAME,
+    "user": db_config.DB_USER,
+    "password": db_config.DB_PASSWORD,
+    "host": db_config.DB_URL,
+    "port": db_config.DB_PORT
 }
 
 #  Helper function to connect to the database

@@ -31,7 +31,7 @@ db_controller = DatabaseController(
     db_name=db_config.DB_DBNAME
 )
 
-character_creator = CharacterCreation(bot_logger, db_controller)
+character_creator = CharacterCreation(db_controller)
 
 @bot.event
 async def on_ready():

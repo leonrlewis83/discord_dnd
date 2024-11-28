@@ -2,6 +2,7 @@
 from discord.ext import commands
 import random
 
+
 class CharacterCreation:
 
     bot = commands.bot.Bot

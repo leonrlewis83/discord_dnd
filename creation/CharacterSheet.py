@@ -1,6 +1,7 @@
 # TODO: Add Server side debug logging capabilities
 import random
 import logging
+import json
 from discord.ext.commands import Context
 from entities.Character import CharacterBuilder
 from entities.Classes import ClassEnum
@@ -15,18 +16,19 @@ async def finalize_character(ctx, db_controller, character: CharacterBuilder):
     """
     try:
         # Validate the character before saving
+        logger.info(f'Attempting to validate character: {character}')
         character.validate()
 
         # Save to the database
         db_controller.insert("characters", {
             "user_id": character.user_id,
-            "stats": {stat.name: value for stat, value in character.stats.items()},
+            "stats": json.dumps({stat.name: value for stat, value in character.stats.items()}),
             "class": character.chosen_class.display_name,
             "race": character.chosen_race.value
         })
 
         # Notify the user of successful creation
-        await ctx.send(f"Character creation complete! Stats: {character.stats}, "
+        await ctx.send(f'Character creation complete! Stats: {json.dumps({stat.name:value for stat, value in character.stats.items()})}, '
                        f"Class: {character.chosen_class.display_name}, Race: {character.chosen_race.value}")
     except ValueError as e:
         await ctx.send(f"Character validation failed: {e}")
@@ -221,6 +223,7 @@ class CharacterCreation:
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             if confirm_msg.content.lower() == "yes":
+                character.chosen_class = chosen_class
                 await ctx.send("Class confirmed! Moving to race selection.")
                 await self.choose_race(ctx, character)
             else:
@@ -248,6 +251,7 @@ class CharacterCreation:
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             if confirm_msg.content.lower() == "yes":
+                character.chosen_race = chosen_race
                 await finalize_character(ctx, self.db_controller, character)
             else:
                 await ctx.send("Restarting race selection...")

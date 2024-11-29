@@ -6,6 +6,7 @@ from typing import Any, List, Optional, Dict
 
 
 logger = logging.getLogger("bot.dbcontroller")
+# TODO: Need to create tables, and prime database schemas if they do not exist.
 class DatabaseController:
     def __init__(self, db_url: str, db_port: int, db_user: str, db_password: str, db_name: str, pool_size: int = 5):
         self.db_url = db_url

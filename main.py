@@ -1,12 +1,11 @@
 import logging
-from operator import truediv
-
 import discord
 from discord.ext import commands
 from utils.DatabaseController import DatabaseController
 from creation.CharacterSheet import CharacterCreation
 from config.ConfigLoader import ConfigLoader
 from utils.LoggingHelper import Blacklist
+from utils.Persona import ChatGPTPersona
 
 # Configuring Logging
 logging.basicConfig(
@@ -25,6 +24,7 @@ bot = commands.Bot(command_prefix="!", intents=intents, case_insensitive=True)
 sys_config = ConfigLoader()
 db_config = sys_config.database
 discord_config = sys_config.discord
+openai_config =  sys_config.openai
 db_controller = DatabaseController(
     db_url=db_config.DB_URL,
     db_port=db_config.DB_PORT,
@@ -32,12 +32,35 @@ db_controller = DatabaseController(
     db_password=db_config.DB_PASSWORD,
     db_name=db_config.DB_DBNAME
 )
+extensions = [
+    "cogs.Ysoldedatabase",
+    "cogs.HelpAO"
+]
 
 character_creator = CharacterCreation(db_controller)
+chatgpt_persona = ChatGPTPersona(persona="Ysolde is a Tiefling Apothecary who specializes in alchemy and healing.", api_key=openai_config.GPT_TOKEN)
+
+SUCCESS_MESSAGE_TEMPLATE = "Successfully loaded extension: {}"
+
+async def load_extensions():
+    for extension in extensions:
+        try:
+            # Manual loading of cog with db_controller
+            if extension == "cogs.Ysoldedatabase":
+                from cogs.Ysoldedatabase import Ysolde  # Import cog directly
+                await bot.add_cog(Ysolde(bot, db_controller, chatgpt_persona))  # Pass db_controller directly
+            else:
+                await bot.load_extension(extension)
+            bot_logger.info(f"Successfully loaded extension: {extension}")
+        except Exception as exception:
+            bot_logger.error(f"Failed to load extension {extension}: {exception}")
+            bot_logger.error(traceback.format_exc())
+
 
 @bot.event
 async def on_ready():
     bot_logger.info(f'Bot connected as {bot.user}')
+    await load_extensions()
 
 # Step #1: Check for Empty Character Slot
 @bot.command(name="newchar")

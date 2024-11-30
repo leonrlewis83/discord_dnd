@@ -25,13 +25,13 @@ async def finalize_character(ctx, db_controller, character: CharacterBuilder):
             "user_id": character.user_id,
             "stats": json.dumps({stat.name: value for stat, value in character.stats.items()}),
             "class": character.chosen_class.display_name,
-            "race": character.chosen_race.value,
+            "race": character.chosen_race.display_name,
             "name": character.character_name
         })
 
         # Notify the user of successful creation
         await ctx.send(f'Character creation complete! Name: {character.character_name}, Stats: {json.dumps({stat.name:value for stat, value in character.stats.items()})}, '
-                       f"Class: {character.chosen_class.display_name}, Race: {character.chosen_race.value}")
+                       f"Class: {character.chosen_class.display_name}, Race: {character.chosen_race.display_name}")
     except ValueError as e:
         await ctx.send(f"Character validation failed: {e}")
     except Exception as e:

@@ -1,124 +1,73 @@
-import logging
-from psycopg2.pool import SimpleConnectionPool
-from psycopg2.extras import RealDictCursor
-from psycopg2 import OperationalError, IntegrityError, DatabaseError
-from typing import Any, List, Optional, Dict
+from typing import Optional, Dict, List
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.declarative import declarative_base
+from contextlib import contextmanager
 
+# Base for all ORM models
+Base = declarative_base()
 
-logger = logging.getLogger("bot.dbcontroller")
-# TODO: Need to create tables, and prime database schemas if they do not exist.
 class DatabaseController:
-    def __init__(self, db_url: str, db_port: int, db_user: str, db_password: str, db_name: str, pool_size: int = 5):
-        self.db_url = db_url
+    def __init__(self, db_host: str, db_port: int, db_user: str, db_password: str, db_name: str, dialect: str = "postgresql", driver: Optional[str] = None):
+        self.db_host = db_host
         self.db_port = db_port
         self.db_user = db_user
         self.db_password = db_password
         self.db_name = db_name
-        self.pool_size = pool_size
-        self.connection_pool = None
-        self._initialize_pool()
+        self.dialect = dialect
+        self.driver = driver
 
-    def _initialize_pool(self):
-        """Initialize the connection pool."""
+        self.db_url = self._construct_db_url()
+        self.engine = create_engine(self.db_url, pool_size=5, max_overflow=10)
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+
+        Base.metadata.create_all(bind=self.engine)
+
+    def _construct_db_url(self) -> str:
+        driver_part = f"+{self.driver}" if self.driver else ""
+        return f"{self.dialect}{driver_part}://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+
+    @contextmanager
+    def session_scope(self) -> Session:
+        """Provide a transactional scope for a series of operations."""
+        session = self.SessionLocal()
         try:
-            self.connection_pool = SimpleConnectionPool(
-                minconn=1,
-                maxconn=self.pool_size,
-                user=self.db_user,
-                password=self.db_password,
-                host=self.db_url,
-                port=self.db_port,
-                database=self.db_name
-            )
-            if not self.connection_pool:
-                logger.error(f'Failed to initialize the connection pool.')
-                raise RuntimeError("Failed to initialize the connection pool.")
-            logger.info("Connection pool initialized successfully.")
-        except OperationalError as e:
-            logger.error(f'Error initializing connection pool. {e}')
-            raise ConnectionError(f"Error initializing connection pool: {e}")
-
-    def _get_connection(self):
-        """Retrieve a connection from the pool."""
-        if not self.connection_pool:
-            raise RuntimeError("Connection pool is not initialized.")
-        try:
-            return self.connection_pool.getconn()
-        except OperationalError as e:
-            raise ConnectionError(f"Error retrieving connection from the pool: {e}")
-
-    def _release_connection(self, conn):
-        """Return a connection to the pool."""
-        if self.connection_pool:
-            self.connection_pool.putconn(conn)
-
-    def fetch_all(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
-        """Fetch all rows from a query."""
-        conn = self._get_connection()
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, params or ())
-                return cur.fetchall()
-        except DatabaseError as e:
-            logger.error(f'Database Error: {e}')
-            raise RuntimeError(f"Error fetching data: {e}")
+            yield session
+            session.commit()
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise
         finally:
-            self._release_connection(conn)
+            session.close()
 
-    def fetch_one(self, query: str, params: Optional[tuple] = None) -> Optional[Dict[str, Any]]:
-        """Fetch a single row from a query."""
-        conn = self._get_connection()
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, params or ())
-                return cur.fetchone()
-        except DatabaseError as e:
-            logger.error(f'Database Error: {e}')
-            raise RuntimeError(f"Error fetching data: {e}")
-        finally:
-            self._release_connection(conn)
+    def fetch_all(self, model: Base, filters: Optional[Dict] = None) -> List[Base]:
+        """Fetch all rows matching optional filters."""
+        with self.session_scope() as session:
+            query = session.query(model)
+            if filters:
+                query = query.filter_by(**filters)
+            return query.all()
 
-    def execute(self, query: str, params: Optional[tuple] = None) -> None:
-        """Execute a query without returning results."""
-        conn = self._get_connection()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(query, params or ())
-                conn.commit()
-        except IntegrityError as e:
-            conn.rollback()
-            logger.error(f'Integrity Exception: {e}')
-            raise ValueError(f"Data integrity error: {e}")
-        except DatabaseError as e:
-            conn.rollback()
-            logger.error(f'Database Error: {e}')
-            raise RuntimeError(f"Error executing query: {e}")
-        finally:
-            self._release_connection(conn)
+    def fetch_one(self, model: Base, filters: Optional[Dict] = None) -> Optional[Base]:
+        """Fetch a single row matching optional filters."""
+        with self.session_scope() as session:
+            query = session.query(model)
+            if filters:
+                query = query.filter_by(**filters)
+            return query.first()
 
-    def insert(self, table: str, data: Dict[str, Any]) -> None:
-        """Insert data into a table."""
-        columns = ', '.join(data.keys())
-        placeholders = ', '.join(['%s'] * len(data))
-        query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
-        logger.debug(f'INSERT Executing: {query}')
-        self.execute(query, tuple(data.values()))
+    def insert(self, obj: Base) -> None:
+        """Insert a single ORM object."""
+        with self.session_scope() as session:
+            session.add(obj)
 
-    def update(self, table: str, data: Dict[str, Any], condition: str, condition_params: tuple) -> None:
-        """Update data in a table based on a condition."""
-        set_clause = ', '.join([f"{col} = %s" for col in data.keys()])
-        query = f"UPDATE {table} SET {set_clause} WHERE {condition}"
-        logger.debug(f'UPDATE Executing: {query}')
-        self.execute(query, tuple(data.values()) + condition_params)
+    def update(self, model: Base, filters: Dict, updates: Dict) -> None:
+        """Update rows in a table."""
+        with self.session_scope() as session:
+            session.query(model).filter_by(**filters).update(updates)
 
-    def delete(self, table: str, condition: str, condition_params: tuple) -> None:
-        """Delete data from a table based on a condition."""
-        query = f"DELETE FROM {table} WHERE {condition}"
-        logger.debug(f'DELETE Executing: {query}')
-        self.execute(query, condition_params)
-
-    def close_pool(self):
-        """Close the connection pool."""
-        if self.connection_pool:
-            self.connection_pool.closeall()
-            logger.info("Connection pool closed.")
+    def delete(self, model: Base, filters: Dict) -> None:
+        """Delete rows in a table."""
+        with self.session_scope() as session:
+            session.query(model).filter_by(**filters).delete()

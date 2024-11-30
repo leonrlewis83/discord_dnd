@@ -1,4 +1,6 @@
 import logging
+from operator import truediv
+
 import discord
 from discord.ext import commands
 from utils.DatabaseController import DatabaseController
@@ -19,7 +21,7 @@ for handler in logging.root.handlers:
 bot_logger = logging.getLogger("bot.gateway")
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents, case_insensitive=True)
 sys_config = ConfigLoader()
 db_config = sys_config.database
 discord_config = sys_config.discord

@@ -134,6 +134,3 @@ class Ysolde(commands.Cog):
         except Exception as e:
             print(f"Error retrieving transactions: {e}")
             await ctx.send("An error occurred while retrieving your transactions.")
-
-def setup(bot, db_controller):
-    bot.add_cog(Ysolde(bot, db_controller))

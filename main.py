@@ -1,6 +1,5 @@
 import logging
 import traceback
-
 import discord
 from discord.ext import commands
 from utils.DatabaseController import DatabaseController
@@ -43,8 +42,13 @@ SUCCESS_MESSAGE_TEMPLATE = "Successfully loaded extension: {}"
 async def load_extensions():
     for extension in extensions:
         try:
-            await bot.load_extension(extension)
-            bot_logger.info(SUCCESS_MESSAGE_TEMPLATE.format(extension))
+            # Manual loading of cog with db_controller
+            if extension == "cogs.Ysoldedatabase":
+                from cogs.Ysoldedatabase import Ysolde  # Import cog directly
+                await bot.add_cog(Ysolde(bot, db_controller))  # Pass db_controller directly
+            else:
+                await bot.load_extension(extension)
+            bot_logger.info(f"Successfully loaded extension: {extension}")
         except Exception as exception:
             bot_logger.error(f"Failed to load extension {extension}: {exception}")
             bot_logger.error(traceback.format_exc())

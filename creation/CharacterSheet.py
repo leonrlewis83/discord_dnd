@@ -1,5 +1,4 @@
 # TODO: Add Server side debug logging capabilities
-import random
 import logging
 import json
 from discord.ext.commands import Context
@@ -8,6 +7,7 @@ from entities.Classes import ClassEnum
 from entities.Races import RacesEnum
 from entities.Stats import StatsEnum
 from utils.DatabaseController import DatabaseController
+from utils.Mathhelpers import generate_grid
 
 logger = logging.getLogger("bot.character")
 async def finalize_character(ctx, db_controller, character: CharacterBuilder):
@@ -132,12 +132,6 @@ class CharacterCreation:
 
     # Step #4: Rolling Method
     async def rolling_method(self, ctx: Context, character: CharacterBuilder):
-        def roll_3d6():
-            return sum(random.randint(1, 6) for _ in range(3))
-
-        def generate_grid():
-            return [roll_3d6() for _ in range(9)]
-
         grid = generate_grid()
         while (
                 sum(1 for x in grid if x < 6) >= 4

@@ -21,6 +21,7 @@ class Class:
 @dataclass
 class CharacterBuilder:
     user_id: int
+    name: Optional[str] = None
     stats: Optional[Dict[StatsEnum, int]] = None
     chosen_class: Optional[ClassEnum] = None
     chosen_race: Optional[RacesEnum] = None
@@ -37,3 +38,5 @@ class CharacterBuilder:
             raise ValueError("Class is not selected or invalid.")
         if not self.chosen_race or not isinstance(self.chosen_race, RacesEnum):
             raise ValueError("Race is not selected or invalid.")
+        if not self.name or not isinstance(self.name, str) or len(self.name) < 1:
+            raise ValueError("Name is invalid.")

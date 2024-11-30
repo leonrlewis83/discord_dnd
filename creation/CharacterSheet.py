@@ -17,20 +17,20 @@ async def finalize_character(ctx, db_controller, character: CharacterBuilder):
     """
     try:
         # Validate the character before saving
-        logger.info(f'Attempting to validate character: {character}')
+        logger.info(f'Attempting to validate character: {character.name}')
         character.validate()
 
         # Save to the database
         db_controller.insert("characters", {
             "user_id": character.user_id,
-            "stats": json.dumps({stat.name: value for stat, value in character.stats.items()}),
+            "stats": json.dumps({stat: value for stat, value in character.stats.items()}),
             "class": character.chosen_class.display_name,
             "race": character.chosen_race.display_name,
-            "name": character.character_name
+            "name": character.name
         })
 
         # Notify the user of successful creation
-        await ctx.send(f'Character creation complete! Name: {character.character_name}, Stats: {json.dumps({stat.name:value for stat, value in character.stats.items()})}, '
+        await ctx.send(f'Character creation complete! Name: {character.name}, Stats: {json.dumps({stat:value for stat, value in character.stats.items()})}, '
                        f"Class: {character.chosen_class.display_name}, Race: {character.chosen_race.display_name}")
     except ValueError as e:
         await ctx.send(f"Character validation failed: {e}")
@@ -51,8 +51,8 @@ class CharacterCreation:
         name_msg = await ctx.bot.wait_for(
             "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
         )
-        character.character_name = name_msg.content
-        await ctx.send(f"Your temporary character name is {character.character_name}. You can change it later.")
+        character.name = name_msg.content
+        await ctx.send(f"Your temporary character name is {character.name}. You can change it later.")
 
         # Proceed to step #2
         await ctx.send("Choose your stat generation method: (1) Standard Point Buy or (2) Rolling")
@@ -144,7 +144,11 @@ class CharacterCreation:
     async def save_character_grid(self, ctx, character, stats):
         """Save the current stats or grid after confirmation."""
         await ctx.send(f"Saving your current stats and grid...\n{stats}")
-        # Insert code here to save the grid/stats into the database if necessary
+        db_data = {
+            "user_id": character.user_id,
+            "stats": json.dumps(stats)
+        }
+        self.db_controller.insert("character_grids", db_data)
 
     # Step #4: Rolling Method
     async def rolling_method(self, ctx: Context, character: CharacterBuilder):
@@ -163,7 +167,7 @@ class CharacterCreation:
 
         for _ in range(2):  # Prompt user for 2 valid grid selections
             while True:  # Only accept valid selections
-                await ctx.send("Select a row, column, or diagonal (e.g., Row 1, Col 2, or Diag 1):")
+                await ctx.send("Select a row, column, or diagonal (e.g., Row 1, Col 1, or Diag 1):")
                 selection_msg = await ctx.bot.wait_for(
                     "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
                 )
@@ -172,30 +176,30 @@ class CharacterCreation:
                 # Validate and process the selection
                 if "row" in selection or "r" in selection:
                     row = int(selection.split()[-1]) - 1
-                    if row not in selected_choices:
+                    if (row, "row") not in selected_choices:
                         pool.extend(grid[row * 3: row * 3 + 3])
-                        selected_choices.append(row)
+                        selected_choices.append((row, "row"))
                         break  # Valid selection, exit the loop
                     else:
                         await ctx.send("You've already selected this row. Try again.")
                         continue  # Invalid selection, prompt again
                 elif "column" in selection or "col" in selection:
                     col = int(selection.split()[-1]) - 1
-                    if col not in selected_choices:
+                    if (col, "col") not in selected_choices:
                         pool.extend(grid[col::3])
-                        selected_choices.append(col)
+                        selected_choices.append((col, "col"))
                         break  # Valid selection, exit the loop
                     else:
                         await ctx.send("You've already selected this column. Try again.")
                         continue  # Invalid selection, prompt again
                 elif "diagonal" in selection or "diag" in selection:
-                    if "1" in selection and 0 not in selected_choices:
+                    if "1" in selection and (0, "diag") not in selected_choices:
                         pool.extend([grid[0], grid[4], grid[8]])
-                        selected_choices.append(0)
+                        selected_choices.append((0, "diag"))
                         break  # Valid selection, exit the loop
-                    elif "2" in selection and 1 not in selected_choices:
+                    elif "2" in selection and (1, "diag") not in selected_choices:
                         pool.extend([grid[2], grid[4], grid[6]])
-                        selected_choices.append(1)
+                        selected_choices.append((1, "diag"))
                         break  # Valid selection, exit the loop
                     else:
                         await ctx.send("You've already selected this diagonal. Try again.")
@@ -203,6 +207,9 @@ class CharacterCreation:
                 else:
                     await ctx.send("Invalid selection. Try again.")
                     continue  # Invalid selection, prompt again
+
+        # Proceed with assigning stats from the pool
+        await self.assign_stats(ctx, character, pool)
 
         # Proceed with assigning stats from the pool
         await self.assign_stats(ctx, character, pool)

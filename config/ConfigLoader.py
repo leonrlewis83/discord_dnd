@@ -13,6 +13,9 @@ class DatabaseConfig:
     DB_PASSWORD: str
     DB_DBNAME: str
 
+@dataclass
+class OpenAIConfig:
+    GPT_TOKEN: str
 
 @dataclass
 class DiscordConfig:
@@ -24,6 +27,7 @@ class ConfigLoader:
         self.config_path = config_path
         self.database = None
         self.discord = None
+        self.openai = None
 
         # Load the configuration
         self.load_config()
@@ -44,6 +48,9 @@ class ConfigLoader:
             },
             "Discord": {
                 "SUPER_SECRET_TOKEN": "your_discord_token_here"
+            },
+            "OpenAI":{
+                "GPT_TOKEN": "your_gpt_token_here"
             }
         }
 

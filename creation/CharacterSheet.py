@@ -163,14 +163,14 @@ class CharacterCreation:
 
         for _ in range(2):  # Prompt user for 2 valid grid selections
             while True:  # Only accept valid selections
-                await ctx.send("Select a row, column, or diagonal (e.g., Row 1):")
+                await ctx.send("Select a row, column, or diagonal (e.g., Row 1, Col 2, or Diag 1):")
                 selection_msg = await ctx.bot.wait_for(
                     "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
                 )
                 selection = selection_msg.content.lower()
 
                 # Validate and process the selection
-                if "row" in selection:
+                if "row" in selection or "r" in selection:
                     row = int(selection.split()[-1]) - 1
                     if row not in selected_choices:
                         pool.extend(grid[row * 3: row * 3 + 3])
@@ -179,7 +179,7 @@ class CharacterCreation:
                     else:
                         await ctx.send("You've already selected this row. Try again.")
                         continue  # Invalid selection, prompt again
-                elif "column" in selection:
+                elif "column" in selection or "col" in selection:
                     col = int(selection.split()[-1]) - 1
                     if col not in selected_choices:
                         pool.extend(grid[col::3])
@@ -188,7 +188,7 @@ class CharacterCreation:
                     else:
                         await ctx.send("You've already selected this column. Try again.")
                         continue  # Invalid selection, prompt again
-                elif "diagonal" in selection:
+                elif "diagonal" in selection or "diag" in selection:
                     if "1" in selection and 0 not in selected_choices:
                         pool.extend([grid[0], grid[4], grid[8]])
                         selected_choices.append(0)

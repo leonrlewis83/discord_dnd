@@ -20,8 +20,8 @@ class Class:
 
 @dataclass
 class CharacterBuilder:
-    character_name: str
     user_id: int
+    character_name: Optional[str] = None
     stats: Optional[Dict[StatsEnum, int]] = None
     chosen_class: Optional[ClassEnum] = None
     chosen_race: Optional[RacesEnum] = None

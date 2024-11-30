@@ -211,9 +211,6 @@ class CharacterCreation:
         # Proceed with assigning stats from the pool
         await self.assign_stats(ctx, character, pool)
 
-        # Proceed with assigning stats from the pool
-        await self.assign_stats(ctx, character, pool)
-
     async def assign_stats(self, ctx, character, pool):
         stats = {}
 

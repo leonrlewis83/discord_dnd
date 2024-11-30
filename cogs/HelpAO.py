@@ -6,7 +6,7 @@ class HelpAO(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="HelpAO", aliases=["helpAO", "helpoa"])
+    @commands.command(name="HelpAO")
     async def help_ao(self, ctx):
         """Display help for available commands, separated by role (User, Staff, DM, Channel-Specific)."""
 
@@ -64,6 +64,6 @@ class HelpAO(commands.Cog):
         await ctx.send(help_message)
 
 
-def setup(bot):
+async def setup(bot):
     """Setup function to add the HelpAO cog."""
-    bot.add_cog(HelpAO(bot))
+    await bot.add_cog(HelpAO(bot))

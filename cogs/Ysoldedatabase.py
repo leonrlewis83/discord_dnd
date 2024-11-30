@@ -1,11 +1,14 @@
 from discord.ext import commands
 from typing import Optional
 
+from utils.Persona import ChatGPTPersona
+
+
 class Ysolde(commands.Cog):
-    def __init__(self, bot, db_controller):
-        self.db_controller=db_controller
-        self.bot=bot
-        # Ysolde's inventory structure
+    def __init__(self, bot, db_controller, chatgpt_persona: ChatGPTPersona):
+        self.db_controller = db_controller
+        self.bot = bot
+        self.chatgpt_persona = chatgpt_persona
         self.inventory = {
             "Healing Potion": {"price": 52.5, "description": "Restores 2d4+2 hit points.", "quantity": 10},
             "Antitoxin": {"price": 65, "description": "Cures poison effects on the user.", "quantity": 5},

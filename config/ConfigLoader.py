@@ -84,6 +84,7 @@ class ConfigLoader:
         """
         self.database = DatabaseConfig(**config_data["Database"])
         self.discord = DiscordConfig(**config_data["Discord"])
+        self.openai = OpenAIConfig(**config_data["OpenAI"])
 
     def save_config(self):
         """

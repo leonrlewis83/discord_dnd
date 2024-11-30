@@ -1,16 +1,19 @@
 from enum import Enum
 
 class RacesEnum(Enum):
-    AASIMAR = "Aasimar"
-    DRAGONBORN = "Dragonborn"
-    DWARF = "Dwarf"
-    ELF = "Elf"
-    GNOME = "Gnome"
-    GOLIATH = "Goliath"
-    HALFLING = "Halfling"
-    HUMAN = "Human"
-    ORC = "Orc"
-    TIEFLING = "Tiefling"
+    AASIMAR = ("Aasimar")
+    DRAGONBORN = ("Dragonborn")
+    DWARF = ("Dwarf")
+    ELF = ("Elf")
+    GNOME = ("Gnome")
+    GOLIATH = ("Goliath")
+    HALFLING = ("Halfling")
+    HUMAN = ("Human")
+    ORC = ("Orc")
+    TIEFLING = ("Tiefling")
+
+    def __init__(self, display_name):
+        self.display_name = display_name
 
     @classmethod
     def list(cls):

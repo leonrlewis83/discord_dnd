@@ -1,4 +1,6 @@
 import logging
+import traceback
+
 import discord
 from discord.ext import commands
 from utils.DatabaseController import DatabaseController
@@ -30,12 +32,28 @@ db_controller = DatabaseController(
     db_password=db_config.DB_PASSWORD,
     db_name=db_config.DB_DBNAME
 )
+extensions = [
+    "cogs.Ysoldedatabase"
+]
 
 character_creator = CharacterCreation(db_controller)
+
+SUCCESS_MESSAGE_TEMPLATE = "Successfully loaded extension: {}"
+
+async def load_extensions():
+    for extension in extensions:
+        try:
+            await bot.load_extension(extension)
+            bot_logger.info(SUCCESS_MESSAGE_TEMPLATE.format(extension))
+        except Exception as exception:
+            bot_logger.error(f"Failed to load extension {extension}: {exception}")
+            bot_logger.error(traceback.format_exc())
+
 
 @bot.event
 async def on_ready():
     bot_logger.info(f'Bot connected as {bot.user}')
+    await load_extensions()
 
 # Step #1: Check for Empty Character Slot
 @bot.command(name="newchar")

@@ -2,7 +2,7 @@ import logging
 import json
 import traceback
 from discord.ext import commands
-from entities.Character import Character
+from models.Character import Character
 from entities.Classes import ClassEnum
 from entities.Races import RacesEnum
 from entities.Stats import StatsEnum

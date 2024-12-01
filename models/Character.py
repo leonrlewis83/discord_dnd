@@ -1,5 +1,5 @@
 from discord.mentions import default
-from sqlalchemy import Column, Integer, String, ForeignKey, Table, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, Table, JSON, Boolean
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.ext.declarative import declarative_base
 from dataclasses import dataclass, field
@@ -11,21 +11,6 @@ from entities.Classes import ClassEnum
 Base = declarative_base()
 # Lost Logging - need to implement eventually
 # Association table for many-to-many relationships (e.g., inventory items)
-character_inventory = Table(
-    "character_inventory",
-    Base.metadata,
-    Column("character_id", Integer, ForeignKey("characters.id"), primary_key=True),
-    Column("item_name", String, primary_key=True),
-    Column("quantity", Integer, nullable=False, default=1),
-)
-
-class Inventory(Base):
-    """
-    SQLAlchemy ORM representation for Inventory.
-    """
-    __tablename__ = "inventories"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    items = Column(JSON, default={})  # Store as JSON for flexibility
 
 @dataclass
 class Character(Base):
@@ -34,16 +19,20 @@ class Character(Base):
     """
     __tablename__ = "characters"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(nullable=False)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    stats: Mapped[Dict[str, int]] = mapped_column(JSON, nullable=False)  # Store stats as JSON
-    chosen_class: Mapped[str] = mapped_column(String, nullable=False)  # Store class name
-    chosen_race: Mapped[str] = mapped_column(String, nullable=False)  # Store race name
-    completed: Mapped[bool] = mapped_column(nullable=False, default=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False)
+    name =  Column(String, nullable=False)
+    stats = Column(JSON, nullable=False)  # Store stats as JSON
+    chosen_class_id = Column(Integer, ForeignKey('class_enum.id'), nullable=False)
+    chosen_race_id = Column(Integer, ForeignKey('races_enum.id'), nullable=False)
+    completed = Column(Boolean, nullable=False, default=False)
+
+    # Relationships
+    chosen_class = relationship("ClassEnumDB")
+    chosen_race = relationship("RacesEnumDB")
 
     # Relationship with inventory
-    inventory: Mapped[Inventory] = relationship("Inventory", backref="character", uselist=False)
+    # inventory: Mapped[Inventory] = relationship("Inventory", backref="character", uselist=False)
 
     def __init__(self, user_id):
         self.user_id = user_id

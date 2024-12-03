@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
-from sqlalchemy.ext.declarative import declarative_base
+from models.base import Base
 
 from config.ConfigLoader import ConfigLoader
 
@@ -14,7 +14,6 @@ from config.ConfigLoader import ConfigLoader
 bot_config = ConfigLoader()
 db_config = bot_config.database
 config = context.config
-Base = declarative_base()
 
 def format_db_url(db_host: str, db_port: int, db_user: str, db_password: str, db_name: str, dialect: str = "postgresql", driver: Optional[str] = None):
     driver_part = f"+{driver}" if driver else ""

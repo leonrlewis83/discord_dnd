@@ -57,6 +57,14 @@ class DatabaseController:
                 query = query.filter_by(**filters)
             return query.first()
 
+    def fetch_count(self, model: Base, filters: Optional[Dict] = None) -> int:
+        """Fetch the count of rows matching optional filters."""
+        with self.session_scope() as session:
+            query = session.query(model)
+            if filters:
+                query = query.filter_by(**filters)
+            return query.count()
+
     def insert(self, obj: Base) -> None:
         """Insert a single ORM object."""
         with self.session_scope() as session:

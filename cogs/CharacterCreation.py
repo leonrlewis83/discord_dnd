@@ -2,6 +2,9 @@ import logging
 import json
 import traceback
 from discord.ext import commands
+from sqlalchemy.orm import Session
+
+from models import ClassEnumDB, RacesEnumDB
 from models.Character import Character
 from entities.Classes import ClassEnum
 from entities.Races import RacesEnum
@@ -24,9 +27,8 @@ class CharacterCreation(commands.Cog):
     async def newchar(self, ctx):
         self.user_id = ctx.author.id
         self.character = Character(self.user_id)
-        char_count = self.db_controller.fetch_one("SELECT COUNT(*) AS count FROM characters WHERE user_id = :user_id",
-                                             {"user_id": self.user_id})
-        if char_count and char_count['count'] >= 3:  # Assume 3 max character slots
+        char_count = self.db_controller.fetch_count(model=Character,filters={"user_id": self.user_id})
+        if char_count and char_count >= 3:  # Assume 3 max character slots
             await ctx.send("You do not have an available character slot to create a new character.")
             return
 
@@ -207,7 +209,7 @@ class CharacterCreation(commands.Cog):
             value = int(stat_msg.content)
 
             # Log the selection
-            logger.info(f"User assigned {value} to {stat}")
+            logger.info(f"User {self.user_id} assigned {value} to {stat} for character {self.character.name}.")
 
             if value in pool:
                 stats[stat] = value
@@ -217,7 +219,7 @@ class CharacterCreation(commands.Cog):
                 continue  # Invalid selection, prompt again
 
         # Save final stats after assigning
-        await ctx.send(f"Your final stats are: {stats}. Is this correct? (yes/no)")
+        await ctx.send(f"Your final stats are: {stats}.\n\nIs this correct? (yes/no)")
         confirm_msg = await ctx.bot.wait_for(
             "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
         )
@@ -252,7 +254,9 @@ class CharacterCreation(commands.Cog):
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             if confirm_msg.content.lower() == "yes":
-                self.character.chosen_class = chosen_class
+                with Session(self.db_controller.engine) as session:
+                    chosen_class_from_db = session.query(ClassEnumDB).filter_by(display_name=chosen_class.display_name).one()
+                self.character.chosen_class = chosen_class_from_db
                 await ctx.send("Class confirmed! Moving to race selection.")
                 await self.choose_race(ctx)
             else:
@@ -279,7 +283,9 @@ class CharacterCreation(commands.Cog):
                 "message", check=lambda m: m.author == ctx.author and m.channel == ctx.channel
             )
             if confirm_msg.content.lower() == "yes":
-                self.character.chosen_race = chosen_race
+                with Session(self.db_controller.engine) as session:
+                    chosen_race_from_db = session.query(RacesEnumDB).filter_by(display_name=chosen_race.display_name).one()
+                self.character.chosen_race = chosen_race_from_db
                 await self.finalize_character(ctx, self.db_controller)
             else:
                 await ctx.send("Restarting race selection...")
@@ -294,6 +300,11 @@ class CharacterCreation(commands.Cog):
         """
         character = self.character
         try:
+            with Session(self.db_controller.engine) as session:
+                character = session.merge(character)
+                # Ensure lazy-loaded attributes are refreshed
+                session.refresh(character)
+
             # Validate the character before saving
             logger.info(f'Attempting to validate character: {character.name}')
             character.validate()

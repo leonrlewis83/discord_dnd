@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Table, Integer, ForeignKey, String, JSON
 from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from models.base import Base
 
 character_inventory = Table(
     "character_inventory",

@@ -35,7 +35,8 @@ db_controller = DatabaseController(
 )
 extensions = [
     "cogs.Ysoldedatabase",
-    "cogs.HelpAO"
+    "cogs.HelpAO",
+    "cogs.CharacterCommands"
 ]
 
 character_creator = CharacterCreation(db_controller)
